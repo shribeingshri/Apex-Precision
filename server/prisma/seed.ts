@@ -47,13 +47,13 @@ async function main() {
   }
 
   // 3. Employees & Users for each Role
-  const passwordHash = await bcrypt.hash('Admin@123456', 10);
+  const passwordHash = await bcrypt.hash('password123', 10);
 
   const employeesData = [
     {
       code: 'EMP-001',
       name: 'Rajesh Sharma',
-      email: 'admin@mfgerp.com',
+      email: 'admin@apexprecision.com',
       phone: '+91 98200 11001',
       dept: 'Executive Management',
       designation: 'Managing Director & Super Admin',
@@ -63,7 +63,7 @@ async function main() {
     {
       code: 'EMP-002',
       name: 'Pooja Iyer',
-      email: 'mgmt@mfgerp.com',
+      email: 'mgmt@apexprecision.com',
       phone: '+91 98200 11002',
       dept: 'Executive Management',
       designation: 'Chief Operating Officer',
@@ -73,7 +73,7 @@ async function main() {
     {
       code: 'EMP-003',
       name: 'Sunil Deshmukh',
-      email: 'finance@mfgerp.com',
+      email: 'finance@apexprecision.com',
       phone: '+91 98200 11003',
       dept: 'Finance & Accounts',
       designation: 'Head of Finance & Accounts',
@@ -83,7 +83,7 @@ async function main() {
     {
       code: 'EMP-004',
       name: 'Vikram Mehta',
-      email: 'pm@mfgerp.com',
+      email: 'pm@apexprecision.com',
       phone: '+91 98200 11004',
       dept: 'Engineering & Design',
       designation: 'Senior Project Manager',
@@ -93,7 +93,7 @@ async function main() {
     {
       code: 'EMP-005',
       name: 'Ananya Roy',
-      email: 'sales@mfgerp.com',
+      email: 'sales@apexprecision.com',
       phone: '+91 98200 11005',
       dept: 'Sales & Client Relations',
       designation: 'Senior Client Relations Lead',
@@ -103,7 +103,7 @@ async function main() {
     {
       code: 'EMP-006',
       name: 'Manoj Kumar',
-      email: 'ops@mfgerp.com',
+      email: 'ops@apexprecision.com',
       phone: '+91 98200 11006',
       dept: 'Production & Manufacturing',
       designation: 'Shop Floor Plant Supervisor',
@@ -113,7 +113,7 @@ async function main() {
     {
       code: 'EMP-007',
       name: 'Kavita Patel',
-      email: 'employee@mfgerp.com',
+      email: 'employee@apexprecision.com',
       phone: '+91 98200 11007',
       dept: 'Quality Assurance & Control',
       designation: 'Quality Metrology Specialist',

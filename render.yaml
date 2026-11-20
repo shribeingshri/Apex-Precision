@@ -1,0 +1,24 @@
+databases:
+  - name: mfg-erp-db
+    plan: free
+    databaseName: mfg_erp
+    user: mfg_erp_user
+
+services:
+  - type: web
+    name: apex-precision-erp
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npx --prefix server prisma migrate deploy && npm run db:seed && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mfg-erp-db
+          property: connectionString
