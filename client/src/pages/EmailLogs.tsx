@@ -156,3 +156,4 @@ export const EmailLogs: React.FC = () => {
     </div>
   );
 };
+

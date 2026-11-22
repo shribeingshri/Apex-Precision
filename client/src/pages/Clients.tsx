@@ -298,3 +298,4 @@ export const Clients: React.FC = () => {
     </div>
   );
 };
+

@@ -106,3 +106,4 @@ export const Activity: React.FC = () => {
     </div>
   );
 };
+

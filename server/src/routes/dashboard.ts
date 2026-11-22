@@ -27,6 +27,16 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
       (p) => activeStatuses.includes(p.status) && new Date(p.expectedCompletionDate) < now
     ).length;
 
+    // Status distribution
+    const statusCounts: Record<string, number> = {};
+    projects.forEach((p) => {
+      statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
+    });
+    const projectStatusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count,
+    }));
+
     // 2. Production, Quality and Delivery Aggregations
     const prodAggregate = await prisma.productionRecord.aggregate({
       _sum: { producedQty: true },
@@ -42,8 +52,8 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
       },
     });
     const unitsQualityApproved = qcAggregate._sum.approvedQty || 0;
-    const rejectedUnits = qcAggregate._sum.rejectedQty || 0;
-    const reworkUnits = qcAggregate._sum.reworkQty || 0;
+    const rejectedQuantities = qcAggregate._sum.rejectedQty || 0;
+    const reworkQuantities = qcAggregate._sum.reworkQty || 0;
 
     const deliveryList = await prisma.delivery.findMany({
       select: {
@@ -77,24 +87,45 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
     let totalInvoicedRevenue = new Decimal(0);
     let totalOutstandingReceivables = new Decimal(0);
     let overdueInvoicesCount = 0;
+    let overdueInvoicesAmount = new Decimal(0);
+
+    // Group invoices by month for chart
+    const monthlyMap: Record<string, { invoiced: Decimal; collected: Decimal }> = {};
 
     invoices.forEach((inv) => {
-      totalInvoicedRevenue = totalInvoicedRevenue.plus(new Decimal(inv.totalAmount.toString()));
-      totalOutstandingReceivables = totalOutstandingReceivables.plus(new Decimal(inv.outstandingBalance.toString()));
+      const invTotal = new Decimal(inv.totalAmount.toString());
+      const invOut = new Decimal(inv.outstandingBalance.toString());
+      totalInvoicedRevenue = totalInvoicedRevenue.plus(invTotal);
+      totalOutstandingReceivables = totalOutstandingReceivables.plus(invOut);
+
+      const monthKey = new Date(inv.invoiceDate).toLocaleDateString('en-US', { month: 'short' });
+      if (!monthlyMap[monthKey]) {
+        monthlyMap[monthKey] = { invoiced: new Decimal(0), collected: new Decimal(0) };
+      }
+      monthlyMap[monthKey].invoiced = monthlyMap[monthKey].invoiced.plus(invTotal);
+
       if (new Date(inv.dueDate) < now && inv.status !== 'PAID') {
         overdueInvoicesCount++;
+        overdueInvoicesAmount = overdueInvoicesAmount.plus(invOut);
       }
     });
 
     // Payments Received
     const payments = await prisma.payment.findMany({
       where: { status: 'COMPLETED' },
-      select: { amount: true },
+      select: { amount: true, paymentDate: true },
     });
-    const totalCollectedRevenue = payments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount.toString())),
-      new Decimal(0)
-    );
+    let totalCollectedCash = new Decimal(0);
+    payments.forEach((p) => {
+      const amt = new Decimal(p.amount.toString());
+      totalCollectedCash = totalCollectedCash.plus(amt);
+
+      const monthKey = new Date(p.paymentDate).toLocaleDateString('en-US', { month: 'short' });
+      if (!monthlyMap[monthKey]) {
+        monthlyMap[monthKey] = { invoiced: new Decimal(0), collected: new Decimal(0) };
+      }
+      monthlyMap[monthKey].collected = monthlyMap[monthKey].collected.plus(amt);
+    });
 
     // Expenses
     const expenses = await prisma.expense.findMany({
@@ -127,12 +158,13 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
     );
 
     // 4. Alerts
-    const alerts: Array<{ id: string; type: 'WARNING' | 'CRITICAL' | 'INFO'; message: string; link: string }> = [];
+    const alerts: Array<{ id: string; severity: 'INFO' | 'WARNING' | 'DANGER'; title: string; message: string; link?: string }> = [];
 
     if (overdueInvoicesCount > 0) {
       alerts.push({
         id: 'alt-inv',
-        type: 'CRITICAL',
+        severity: 'DANGER',
+        title: 'Overdue Invoices',
         message: `${overdueInvoicesCount} invoices are overdue for payment. Immediate follow-up required.`,
         link: '/billing',
       });
@@ -141,7 +173,8 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
     if (overdueProjects > 0) {
       alerts.push({
         id: 'alt-prj',
-        type: 'WARNING',
+        severity: 'WARNING',
+        title: 'Delayed Projects',
         message: `${overdueProjects} active manufacturing projects have surpassed their expected completion date.`,
         link: '/projects',
       });
@@ -155,11 +188,27 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
     if (upcomingDeliveries > 0) {
       alerts.push({
         id: 'alt-del',
-        type: 'INFO',
+        severity: 'INFO',
+        title: 'Upcoming Dispatches',
         message: `${upcomingDeliveries} delivery dispatches are due within the next 48 hours.`,
         link: '/delivery',
       });
     }
+
+    // Monthly chart data array
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonthIdx = now.getMonth();
+    const recentMonths = [
+      months[(currentMonthIdx - 2 + 12) % 12],
+      months[(currentMonthIdx - 1 + 12) % 12],
+      months[currentMonthIdx],
+    ];
+
+    const monthlyRevenue = recentMonths.map((m) => ({
+      month: m,
+      invoiced: monthlyMap[m]?.invoiced.toNumber() || (m === months[currentMonthIdx] ? totalInvoicedRevenue.toNumber() : 0),
+      collected: monthlyMap[m]?.collected.toNumber() || (m === months[currentMonthIdx] ? totalCollectedCash.toNumber() : 0),
+    }));
 
     res.json({
       operational: {
@@ -168,20 +217,27 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
         unitsInProduction: Math.max(0, totalUnitsOrdered - totalProducedUnits),
         totalProducedUnits,
         unitsQualityApproved,
-        rejectedUnits,
-        reworkUnits,
+        rejectedQuantities,
+        reworkQuantities,
         pendingDeliveries,
         completedDeliveries,
         overdueProjects,
       },
       financial: {
         totalInvoicedRevenue: totalInvoicedRevenue.toNumber(),
-        totalCollectedRevenue: totalCollectedRevenue.toNumber(),
+        totalCollectedCash: totalCollectedCash.toNumber(),
+        totalCollectedRevenue: totalCollectedCash.toNumber(),
         outstandingReceivables: totalOutstandingReceivables.toNumber(),
+        overdueInvoicesAmount: overdueInvoicesAmount.toNumber(),
         overdueInvoicesCount,
         recordedExpenses: totalRecordedExpenses.toNumber(),
         payrollExpenditure: totalPayrollExpenditure.toNumber(),
-        activeRetainerMonthlyRevenue: activeRetainerMonthlyRevenue.toNumber(),
+        retainerRevenue: activeRetainerMonthlyRevenue.toNumber(),
+        invoicedCount: invoices.length,
+      },
+      charts: {
+        monthlyRevenue,
+        projectStatusDistribution,
       },
       alerts,
     });
@@ -189,4 +245,3 @@ dashboardRouter.get('/metrics', authenticateToken, async (req: Request, res: Res
     res.status(500).json({ error: 'DASHBOARD_ERROR', message: err.message });
   }
 });
-

@@ -40,7 +40,7 @@ export const Dashboard: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiRequest<DashboardMetrics>('/api/dashboard/metrics');
+      const data = await apiRequest<any>('/api/dashboard/metrics');
       setMetrics(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard metrics');
@@ -76,7 +76,7 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const { operational, financial, charts, alerts } = metrics;
+  const { operational = {} as any, financial = {} as any, charts = {} as any, alerts = [] } = metrics;
 
   // Chart colors
   const STATUS_COLORS: Record<string, string> = {
@@ -87,8 +87,6 @@ export const Dashboard: React.FC = () => {
     COMPLETED: '#059669',
     PLANNING: '#f59e0b',
   };
-
-  const EXPENSE_COLORS = ['#38bdf8', '#818cf8', '#c084fc', '#f472b6', '#fb7185', '#34d399', '#fbbf24'];
 
   return (
     <div className="space-y-6">
@@ -112,20 +110,20 @@ export const Dashboard: React.FC = () => {
       {/* Critical Alert Banners */}
       {alerts && alerts.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {alerts.map((alert, idx) => (
+          {alerts.map((alert: any, idx: number) => (
             <div
               key={idx}
               className={`p-3.5 rounded-xl border flex items-start gap-3 ${
-                alert.severity === 'DANGER'
+                alert.severity === 'DANGER' || alert.type === 'CRITICAL'
                   ? 'bg-rose-950/40 border-rose-800/80 text-rose-300'
-                  : alert.severity === 'WARNING'
+                  : alert.severity === 'WARNING' || alert.type === 'WARNING'
                   ? 'bg-amber-950/40 border-amber-800/80 text-amber-300'
                   : 'bg-sky-950/40 border-sky-800/80 text-sky-300'
               }`}
             >
               <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider">{alert.title}</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wider">{alert.title || alert.type}</h4>
                 <p className="text-sm mt-0.5 font-medium">{alert.message}</p>
               </div>
             </div>
@@ -142,17 +140,17 @@ export const Dashboard: React.FC = () => {
           <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm relative overflow-hidden">
             <div className="text-xs font-medium text-slate-400">Total Invoiced (Billed)</div>
             <div className="text-2xl font-bold text-white mt-1">
-              {formatCurrency(financial.totalInvoicedRevenue)}
+              {formatCurrency(financial.totalInvoicedRevenue ?? 0)}
             </div>
             <div className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-              <span>{financial.invoicedCount} Issued Invoices</span>
+              <span>{financial.invoicedCount ?? 0} Issued Invoices</span>
             </div>
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm relative overflow-hidden">
             <div className="text-xs font-medium text-emerald-400">Total Collected Cash</div>
             <div className="text-2xl font-bold text-emerald-400 mt-1">
-              {formatCurrency(financial.totalCollectedCash)}
+              {formatCurrency(financial.totalCollectedCash ?? financial.totalCollectedRevenue ?? 0)}
             </div>
             <div className="text-xs text-slate-500 mt-2">Verified bank & UPI credits</div>
           </div>
@@ -160,20 +158,20 @@ export const Dashboard: React.FC = () => {
           <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm relative overflow-hidden">
             <div className="text-xs font-medium text-amber-400">Outstanding Receivables</div>
             <div className="text-2xl font-bold text-amber-400 mt-1">
-              {formatCurrency(financial.outstandingReceivables)}
+              {formatCurrency(financial.outstandingReceivables ?? 0)}
             </div>
             <div className="text-xs text-slate-500 mt-2">
-              Overdue: {formatCurrency(financial.overdueInvoicesAmount)} ({financial.overdueInvoicesCount})
+              Overdue: {formatCurrency(financial.overdueInvoicesAmount ?? 0)} ({financial.overdueInvoicesCount ?? 0})
             </div>
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm relative overflow-hidden">
             <div className="text-xs font-medium text-slate-400">Total Operational Expenses</div>
             <div className="text-2xl font-bold text-rose-400 mt-1">
-              {formatCurrency(financial.recordedExpenses)}
+              {formatCurrency(financial.recordedExpenses ?? 0)}
             </div>
             <div className="text-xs text-slate-500 mt-2">
-              Payroll: {formatCurrency(financial.payrollExpenditure)}
+              Payroll: {formatCurrency(financial.payrollExpenditure ?? 0)}
             </div>
           </div>
         </div>
@@ -187,45 +185,45 @@ export const Dashboard: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <Briefcase className="w-5 h-5 text-sky-400 mx-auto mb-1.5" />
-            <div className="text-lg font-bold text-white">{operational.activeProjects}</div>
+            <div className="text-lg font-bold text-white">{operational.activeProjects ?? 0}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">Active Projects</div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <Layers className="w-5 h-5 text-indigo-400 mx-auto mb-1.5" />
-            <div className="text-lg font-bold text-white">{operational.totalUnitsOrdered.toLocaleString()}</div>
+            <div className="text-lg font-bold text-white">{(operational.totalUnitsOrdered ?? 0).toLocaleString()}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">Units Ordered</div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <Factory className="w-5 h-5 text-sky-400 mx-auto mb-1.5" />
-            <div className="text-lg font-bold text-white">{operational.unitsInProduction.toLocaleString()}</div>
+            <div className="text-lg font-bold text-white">{(operational.unitsInProduction ?? 0).toLocaleString()}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">In Production</div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <ShieldCheck className="w-5 h-5 text-emerald-400 mx-auto mb-1.5" />
-            <div className="text-lg font-bold text-emerald-400">{operational.unitsQualityApproved.toLocaleString()}</div>
+            <div className="text-lg font-bold text-emerald-400">{(operational.unitsQualityApproved ?? 0).toLocaleString()}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">QC Approved</div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <AlertTriangle className="w-5 h-5 text-rose-400 mx-auto mb-1.5" />
             <div className="text-lg font-bold text-rose-400">
-              {(operational.rejectedQuantities + operational.reworkQuantities).toLocaleString()}
+              {((operational.rejectedQuantities ?? operational.rejectedUnits ?? 0) + (operational.reworkQuantities ?? operational.reworkUnits ?? 0)).toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">Scrap / Rework</div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <Truck className="w-5 h-5 text-amber-400 mx-auto mb-1.5" />
-            <div className="text-lg font-bold text-amber-400">{operational.pendingDeliveries}</div>
+            <div className="text-lg font-bold text-amber-400">{operational.pendingDeliveries ?? 0}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">Pending Dispatch</div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
             <CheckCircle2 className="w-5 h-5 text-teal-400 mx-auto mb-1.5" />
-            <div className="text-lg font-bold text-teal-400">{operational.completedDeliveries}</div>
+            <div className="text-lg font-bold text-teal-400">{operational.completedDeliveries ?? 0}</div>
             <div className="text-[11px] text-slate-400 mt-0.5">Delivered Orders</div>
           </div>
         </div>
@@ -241,7 +239,7 @@ export const Dashboard: React.FC = () => {
           </p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.monthlyRevenue}>
+              <BarChart data={charts.monthlyRevenue || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
                 <YAxis
@@ -281,7 +279,7 @@ export const Dashboard: React.FC = () => {
                     outerRadius={80}
                     paddingAngle={3}
                   >
-                    {charts.projectStatusDistribution.map((entry, index) => (
+                    {charts.projectStatusDistribution.map((entry: any, index: number) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={STATUS_COLORS[entry.status] || '#64748b'}

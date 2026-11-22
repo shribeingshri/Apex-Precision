@@ -159,15 +159,25 @@ export interface Payment {
   id: string;
   paymentCode?: string;
   paymentNumber?: string;
+  paymentType?: 'INVOICE_PAYMENT' | 'ADVANCE_PAYMENT';
   clientId: string;
-  client?: { id: string; clientCode: string; companyName: string };
+  client?: { id: string; clientCode: string; companyName: string; gstin?: string };
   invoiceId?: string;
-  invoice?: { id: string; invoiceNumber: string; totalAmount: string | number };
+  invoice?: { id: string; invoiceNumber: string; totalAmount: string | number; outstandingBalance?: string | number };
   paymentDate: string;
   amount: string | number;
+  tdsAmount?: string | number;
+  bankCharges?: string | number;
+  lateFee?: string | number;
+  earlyDiscount?: string | number;
+  netCashReceived?: string | number;
   paymentMethod: string;
   transactionReference: string;
-  status?: string;
+  bankName?: string;
+  instrumentDate?: string;
+  status?: 'COMPLETED' | 'PENDING' | 'REVERSED' | 'FAILED';
+  reversalReason?: string;
+  reversedAt?: string;
   notes?: string;
 }
 

@@ -40,3 +40,4 @@ export function formatDateTime(dateString: string | undefined | null): string {
     return dateString;
   }
 }
+

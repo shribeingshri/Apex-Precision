@@ -43,3 +43,4 @@ export function getStatusBadgeVariant(status: string): BadgeProps['variant'] {
   if (['QUALITY_INSPECTION', 'READY_FOR_DELIVERY', 'REWORK'].includes(s)) return 'purple';
   return 'default';
 }
+

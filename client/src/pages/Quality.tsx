@@ -280,3 +280,4 @@ export const Quality: React.FC = () => {
     </div>
   );
 };
+

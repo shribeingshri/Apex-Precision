@@ -15,28 +15,28 @@ describe('Manufacturing ERP End-to-End Business Rules & API Test Suite', () => {
     // 1. Authenticate Admin
     const adminRes = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'admin@mfgerp.com', password: 'Admin@123456' });
+      .send({ email: 'admin@mfgerp.com', password: 'password123' });
     expect(adminRes.status).toBe(200);
     adminToken = adminRes.body.token;
 
     // 2. Authenticate Sales Manager
     const salesRes = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'sales@mfgerp.com', password: 'Admin@123456' });
+      .send({ email: 'sales@mfgerp.com', password: 'password123' });
     expect(salesRes.status).toBe(200);
     salesToken = salesRes.body.token;
 
     // 3. Authenticate Operations Staff
     const opsRes = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'ops@mfgerp.com', password: 'Admin@123456' });
+      .send({ email: 'ops@mfgerp.com', password: 'password123' });
     expect(opsRes.status).toBe(200);
     opsToken = opsRes.body.token;
 
     // 4. Authenticate Employee
     const empRes = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'employee@mfgerp.com', password: 'Admin@123456' });
+      .send({ email: 'employee@mfgerp.com', password: 'password123' });
     expect(empRes.status).toBe(200);
     employeeToken = empRes.body.token;
   });

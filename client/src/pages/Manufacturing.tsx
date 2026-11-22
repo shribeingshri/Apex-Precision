@@ -251,3 +251,4 @@ export const Manufacturing: React.FC = () => {
     </div>
   );
 };
+

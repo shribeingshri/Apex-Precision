@@ -35,7 +35,12 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
 // Global Middleware
-app.use((0, helmet_1.default)());
+app.use((0, helmet_1.default)({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts: false,
+}));
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json());
 app.use((0, morgan_1.default)('dev'));
@@ -71,11 +76,22 @@ app.get('/api/health', (req, res) => {
 });
 // Serve frontend build if exists
 const clientDistPath = path_1.default.resolve(__dirname, '../../client/dist');
-app.use(express_1.default.static(clientDistPath));
+app.use(express_1.default.static(clientDistPath, {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {
         return next();
     }
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(path_1.default.join(clientDistPath, 'index.html'), (err) => {
         if (err) {
             res.status(404).send('Manufacturing ERP Client build not found');
