@@ -148,10 +148,16 @@ exports.deliveryRouter.post('/', auth_1.authenticateToken, (0, auth_1.requirePer
         res.status(500).json({ error: 'DELIVERY_CREATE_ERROR', message: err.message });
     }
 });
-exports.deliveryRouter.put('/:id/status', auth_1.authenticateToken, (0, auth_1.requirePermission)('MANAGE_DELIVERY'), async (req, res) => {
+async function handleStatusUpdate(req, res) {
     try {
         const id = getParamId(req);
-        const { status, proofOfDeliveryUrl, actualDeliveryDate } = req.body;
+        const status = req.body.status || req.body.deliveryStatus;
+        const proofOfDeliveryUrl = req.body.proofOfDeliveryUrl || req.body.proofOfDelivery;
+        const { actualDeliveryDate } = req.body;
+        if (!status) {
+            res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Delivery status is required.' });
+            return;
+        }
         const delivery = await db_1.prisma.delivery.update({
             where: { id },
             data: {
@@ -174,4 +180,6 @@ exports.deliveryRouter.put('/:id/status', auth_1.authenticateToken, (0, auth_1.r
     catch (err) {
         res.status(500).json({ error: 'DELIVERY_STATUS_ERROR', message: err.message });
     }
-});
+}
+exports.deliveryRouter.put('/:id/status', auth_1.authenticateToken, (0, auth_1.requirePermission)('MANAGE_DELIVERY'), handleStatusUpdate);
+exports.deliveryRouter.patch('/:id/status', auth_1.authenticateToken, (0, auth_1.requirePermission)('MANAGE_DELIVERY'), handleStatusUpdate);

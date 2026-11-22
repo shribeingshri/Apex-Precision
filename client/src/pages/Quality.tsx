@@ -34,7 +34,17 @@ export const Quality: React.FC = () => {
       setInspections(qcList);
       setProjects(projs);
       if (projs.length > 0 && !formData.projectId) {
-        setFormData((prev) => ({ ...prev, projectId: projs[0].id }));
+        const readyProj = projs.find((p: any) => (p.stats?.availableToInspect ?? 0) > 0) || projs[0];
+        const avail = (readyProj as any).stats?.availableToInspect ?? 0;
+        const defaultQty = avail > 0 ? Math.min(100, avail) : 0;
+        setFormData((prev) => ({
+          ...prev,
+          projectId: readyProj.id,
+          inspectedQty: defaultQty,
+          approvedQty: defaultQty,
+          rejectedQty: 0,
+          reworkQty: 0,
+        }));
       }
     } catch (err) {
       console.error(err);
@@ -59,10 +69,19 @@ export const Quality: React.FC = () => {
       return;
     }
 
+    const derivedStatus =
+      formData.rejectedQty === 0 && formData.reworkQty === 0
+        ? 'PASSED'
+        : formData.approvedQty === 0
+        ? 'FAILED'
+        : formData.reworkQty > 0
+        ? 'REWORK_REQUIRED'
+        : 'CONDITIONALLY_APPROVED';
+
     try {
       await apiRequest('/api/quality', {
         method: 'POST',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, status: derivedStatus }),
       });
       setIsModalOpen(false);
       fetchData();
@@ -122,12 +141,12 @@ export const Quality: React.FC = () => {
                 inspections.map((qc) => (
                   <tr key={qc.id} className="hover:bg-slate-800/30 transition">
                     <td className="px-6 py-4">
-                      <div className="font-mono text-emerald-400 font-semibold">{qc.inspectionCode || 'QC-PASS'}</div>
+                      <div className="font-mono text-emerald-400 font-semibold">{qc.inspectionNumber || qc.inspectionCode || 'QC-PASS'}</div>
                       <div className="text-xs text-slate-500">{formatDate(qc.inspectionDate)}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-white">{qc.project?.name}</div>
-                      <div className="text-xs text-slate-400">{qc.project?.productName}</div>
+                      <div className="text-xs text-slate-400">{qc.project?.productName || qc.project?.projectCode}</div>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-white">
                       {qc.inspectedQty.toLocaleString()}
@@ -142,7 +161,7 @@ export const Quality: React.FC = () => {
                       {qc.reworkQty.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant={getStatusBadgeVariant(qc.inspectionStatus)}>{qc.inspectionStatus}</Badge>
+                      <Badge variant={getStatusBadgeVariant(qc.status || qc.inspectionStatus)}>{qc.status || qc.inspectionStatus}</Badge>
                     </td>
                   </tr>
                 ))
@@ -166,15 +185,32 @@ export const Quality: React.FC = () => {
             <select
               required
               value={formData.projectId}
-              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+              onChange={(e) => {
+                const p: any = projects.find((proj) => proj.id === e.target.value);
+                const avail = p?.stats?.availableToInspect ?? 0;
+                const defaultQty = avail > 0 ? Math.min(100, avail) : 0;
+                setFormData({
+                  ...formData,
+                  projectId: e.target.value,
+                  inspectedQty: defaultQty,
+                  approvedQty: defaultQty,
+                  rejectedQty: 0,
+                  reworkQty: 0,
+                });
+              }}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
             >
-              {projects.map((p) => (
+              {projects.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {p.projectCode} &bull; {p.name}
+                  {p.projectCode} &bull; {p.name} (Uninspected: {p.stats?.availableToInspect ?? 0})
                 </option>
               ))}
             </select>
+            {((projects.find((p) => p.id === formData.projectId) as any)?.stats?.availableToInspect ?? 0) === 0 && (
+              <p className="text-xs text-amber-400 mt-1.5">
+                No uninspected produced units available for this project. Log production output in Manufacturing first.
+              </p>
+            )}
           </div>
 
           <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-3">

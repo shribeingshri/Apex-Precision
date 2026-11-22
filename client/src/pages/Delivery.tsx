@@ -34,10 +34,13 @@ export const Delivery: React.FC = () => {
       setDeliveries(delList);
       setProjects(projs);
       if (projs.length > 0 && !formData.projectId) {
+        const readyProj: any = projs.find((p: any) => (p.stats?.availableToDeliver ?? 0) > 0) || projs[0];
+        const avail = readyProj?.stats?.availableToDeliver ?? 0;
         setFormData((prev) => ({
           ...prev,
-          projectId: projs[0].id,
-          deliveryAddress: projs[0].client?.companyName ? `${projs[0].client.companyName} Receiving Warehouse` : prev.deliveryAddress,
+          projectId: readyProj.id,
+          deliveryQty: avail > 0 ? Math.min(500, avail) : 0,
+          deliveryAddress: readyProj.client?.companyName ? `${readyProj.client.companyName} Receiving Warehouse` : prev.deliveryAddress,
         }));
       }
     } catch (err) {
@@ -69,11 +72,11 @@ export const Delivery: React.FC = () => {
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
       await apiRequest(`/api/delivery/${id}/status`, {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify({
-          deliveryStatus: newStatus,
+          status: newStatus,
           actualDeliveryDate: newStatus === 'DELIVERED' ? new Date().toISOString() : undefined,
-          proofOfDelivery: newStatus === 'DELIVERED' ? 'Signed Delivery Challan #POD-7712' : undefined,
+          proofOfDeliveryUrl: newStatus === 'DELIVERED' ? 'Signed Delivery Challan #POD-7712' : undefined,
         }),
       });
       fetchData();
@@ -132,12 +135,12 @@ export const Delivery: React.FC = () => {
                 deliveries.map((del) => (
                   <tr key={del.id} className="hover:bg-slate-800/30 transition">
                     <td className="px-6 py-4">
-                      <div className="font-mono text-sky-400 font-semibold">{del.deliveryCode}</div>
+                      <div className="font-mono text-sky-400 font-semibold">{del.deliveryNumber || del.deliveryCode}</div>
                       <div className="text-xs text-slate-400">{del.transportReference || 'No AWB'}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-white">{del.client?.companyName}</div>
-                      <div className="text-xs text-slate-400">{del.project?.productName}</div>
+                      <div className="text-xs text-slate-400">{del.product || del.project?.productName || del.project?.name}</div>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-white">
                       {del.deliveryQty.toLocaleString()} units
@@ -154,15 +157,16 @@ export const Delivery: React.FC = () => {
                       <div className="text-slate-500">ETA: {formatDate(del.expectedArrivalDate)}</div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant={getStatusBadgeVariant(del.deliveryStatus)}>{del.deliveryStatus}</Badge>
+                      <Badge variant={getStatusBadgeVariant(del.status || del.deliveryStatus)}>{del.status || del.deliveryStatus}</Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {del.deliveryStatus !== 'DELIVERED' && del.deliveryStatus !== 'CANCELLED' && (
+                      {(del.status || del.deliveryStatus) !== 'DELIVERED' && (del.status || del.deliveryStatus) !== 'CANCELLED' && (
                         <select
-                          value={del.deliveryStatus}
+                          value={del.status || del.deliveryStatus}
                           onChange={(e) => handleUpdateStatus(del.id, e.target.value)}
                           className="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded px-2 py-1 focus:outline-none"
                         >
+                          <option value="PLANNED">Planned</option>
                           <option value="READY_FOR_DISPATCH">Ready</option>
                           <option value="DISPATCHED">Dispatched</option>
                           <option value="IN_TRANSIT">In Transit</option>
@@ -170,7 +174,7 @@ export const Delivery: React.FC = () => {
                           <option value="DELAYED">Delayed</option>
                         </select>
                       )}
-                      {del.deliveryStatus === 'DELIVERED' && (
+                      {(del.status || del.deliveryStatus) === 'DELIVERED' && (
                         <span className="text-xs text-emerald-400 flex items-center justify-end gap-1 font-medium">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Fulfilled
                         </span>
@@ -199,21 +203,28 @@ export const Delivery: React.FC = () => {
               required
               value={formData.projectId}
               onChange={(e) => {
-                const p = projects.find((proj) => proj.id === e.target.value);
+                const p: any = projects.find((proj) => proj.id === e.target.value);
+                const avail = p?.stats?.availableToDeliver ?? 0;
                 setFormData({
                   ...formData,
                   projectId: e.target.value,
+                  deliveryQty: avail > 0 ? Math.min(500, avail) : 0,
                   deliveryAddress: p?.client ? `${p.client.companyName} Receiving Warehouse` : formData.deliveryAddress,
                 });
               }}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
             >
-              {projects.map((p) => (
+              {projects.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {p.projectCode} &bull; {p.name} (Approved Qty: {p.stats?.approvedQty || 0})
+                  {p.projectCode} &bull; {p.name} (Available to Dispatch: {p.stats?.availableToDeliver ?? p.stats?.approvedQty ?? 0})
                 </option>
               ))}
             </select>
+            {((projects.find((p) => p.id === formData.projectId) as any)?.stats?.availableToDeliver ?? 0) === 0 && (
+              <p className="text-xs text-amber-400 mt-1.5">
+                No quality-approved units available for dispatch on this project. Record QC Inspection approval first.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

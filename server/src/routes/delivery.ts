@@ -163,10 +163,17 @@ deliveryRouter.post('/', authenticateToken, requirePermission('MANAGE_DELIVERY')
   }
 });
 
-deliveryRouter.put('/:id/status', authenticateToken, requirePermission('MANAGE_DELIVERY'), async (req: Request, res: Response): Promise<void> => {
+async function handleStatusUpdate(req: Request, res: Response): Promise<void> {
   try {
     const id = getParamId(req);
-    const { status, proofOfDeliveryUrl, actualDeliveryDate } = req.body;
+    const status = req.body.status || req.body.deliveryStatus;
+    const proofOfDeliveryUrl = req.body.proofOfDeliveryUrl || req.body.proofOfDelivery;
+    const { actualDeliveryDate } = req.body;
+
+    if (!status) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Delivery status is required.' });
+      return;
+    }
 
     const delivery = await prisma.delivery.update({
       where: { id },
@@ -191,4 +198,7 @@ deliveryRouter.put('/:id/status', authenticateToken, requirePermission('MANAGE_D
   } catch (err: any) {
     res.status(500).json({ error: 'DELIVERY_STATUS_ERROR', message: err.message });
   }
-});
+}
+
+deliveryRouter.put('/:id/status', authenticateToken, requirePermission('MANAGE_DELIVERY'), handleStatusUpdate);
+deliveryRouter.patch('/:id/status', authenticateToken, requirePermission('MANAGE_DELIVERY'), handleStatusUpdate);

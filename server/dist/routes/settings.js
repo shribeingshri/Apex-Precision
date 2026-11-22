@@ -12,10 +12,41 @@ exports.settingsRouter.get('/', auth_1.authenticateToken, async (req, res) => {
         const settings = await db_1.prisma.systemSetting.findMany({
             orderBy: { key: 'asc' },
         });
-        res.json(settings);
+        const configMap = {};
+        for (const s of settings) {
+            configMap[s.key] = s.value === 'true' ? true : s.value === 'false' ? false : !isNaN(Number(s.value)) && s.value.trim() !== '' ? Number(s.value) : s.value;
+        }
+        res.json(configMap);
     }
     catch (err) {
         res.status(500).json({ error: 'SETTINGS_ERROR', message: err.message });
+    }
+});
+exports.settingsRouter.post('/', auth_1.authenticateToken, (0, auth_1.requireRole)([client_1.Role.SUPER_ADMIN, client_1.Role.MANAGEMENT]), async (req, res) => {
+    try {
+        const entries = Object.entries(req.body || {});
+        for (const [key, value] of entries) {
+            if (value === undefined || value === null)
+                continue;
+            await db_1.prisma.systemSetting.upsert({
+                where: { key },
+                update: { value: String(value) },
+                create: { key, value: String(value) },
+            });
+        }
+        await (0, audit_1.logActivity)({
+            userId: req.user.id,
+            userName: req.user.fullName,
+            action: 'UPDATE_SETTINGS',
+            entity: 'SystemSetting',
+            entityId: 'GLOBAL',
+            details: `Updated ${entries.length} system configuration settings`,
+            ipAddress: req.ip,
+        });
+        res.json({ success: true, updated: entries.length });
+    }
+    catch (err) {
+        res.status(500).json({ error: 'SETTING_UPDATE_ERROR', message: err.message });
     }
 });
 exports.settingsRouter.put('/:key', auth_1.authenticateToken, (0, auth_1.requireRole)([client_1.Role.SUPER_ADMIN, client_1.Role.MANAGEMENT]), async (req, res) => {

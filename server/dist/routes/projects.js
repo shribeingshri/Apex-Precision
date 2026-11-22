@@ -57,14 +57,20 @@ exports.projectsRouter.get('/', auth_1.authenticateToken, async (req, res) => {
                 client: { select: { id: true, clientCode: true, companyName: true } },
                 projectManager: { select: { id: true, name: true, employeeCode: true } },
                 productionRecords: { select: { producedQty: true } },
-                inspections: { select: { approvedQty: true, rejectedQty: true } },
+                inspections: { select: { inspectedQty: true, approvedQty: true, rejectedQty: true } },
                 deliveries: { select: { deliveryQty: true, status: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
         const enriched = projects.map((p) => {
             const producedQty = p.productionRecords.reduce((sum, r) => sum + r.producedQty, 0);
+            const inspectedQty = p.inspections.reduce((sum, r) => sum + r.inspectedQty, 0);
             const approvedQty = p.inspections.reduce((sum, r) => sum + r.approvedQty, 0);
+            const dispatchedQty = p.deliveries
+                .filter((d) => d.status !== 'CANCELLED')
+                .reduce((sum, d) => sum + d.deliveryQty, 0);
+            const availableToInspect = Math.max(0, producedQty - inspectedQty);
+            const availableToDeliver = Math.max(0, approvedQty - dispatchedQty);
             const deliveredQty = p.deliveries
                 .filter((d) => d.status === 'DELIVERED')
                 .reduce((sum, r) => sum + r.deliveryQty, 0);
@@ -75,7 +81,11 @@ exports.projectsRouter.get('/', auth_1.authenticateToken, async (req, res) => {
                 ...p,
                 stats: {
                     producedQty,
+                    inspectedQty,
+                    availableToInspect,
                     approvedQty,
+                    dispatchedQty,
+                    availableToDeliver,
                     deliveredQty,
                     remainingDeliveryQty,
                     productionProgress,

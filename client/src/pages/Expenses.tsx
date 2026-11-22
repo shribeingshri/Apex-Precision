@@ -1,24 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { apiRequest } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Expense, Project } from '../types';
 import { Badge, getStatusBadgeVariant } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { formatCurrency, formatDate } from '../utils/format';
-import { Receipt, Plus, Check, X, Download, Filter } from 'lucide-react';
+import { Receipt, Plus, Check, X, ShieldCheck } from 'lucide-react';
 
 export const Expenses: React.FC = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'SUPER_ADMIN';
+
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
-    payee: 'Precision Tooling Works',
+    title: 'Titanium Billet Stock Procurement',
+    vendor: 'Precision Tooling Works',
     date: new Date().toISOString().split('T')[0],
     category: 'RAW_MATERIALS',
     amount: 45000,
-    paymentMethod: 'Bank Transfer',
+    paymentMethod: 'BANK_TRANSFER',
     reference: 'PO-EXP-8891',
     projectId: '',
     notes: 'Grade 5 Titanium billet stock for manufacturing',
@@ -49,11 +54,14 @@ export const Expenses: React.FC = () => {
     try {
       await apiRequest('/api/expenses', {
         method: 'POST',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          projectId: formData.projectId || null,
+        }),
       });
       setIsModalOpen(false);
       fetchData();
-      alert('Expense recorded and submitted for approval!');
+      alert('Expense recorded and submitted for Admin approval!');
     } catch (err: any) {
       alert(err.message || 'Failed to record expense');
     }
@@ -62,8 +70,8 @@ export const Expenses: React.FC = () => {
   const handleApproval = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       await apiRequest(`/api/expenses/${id}/approval`, {
-        method: 'PATCH',
-        body: JSON.stringify({ approvalStatus: status }),
+        method: 'POST',
+        body: JSON.stringify({ status }),
       });
       fetchData();
     } catch (err: any) {
@@ -121,10 +129,16 @@ export const Expenses: React.FC = () => {
                 expenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-slate-800/30 transition">
                     <td className="px-6 py-4">
-                      <div className="font-mono text-sky-400 font-semibold">{exp.expenseCode}</div>
+                      <div className="font-mono text-sky-400 font-semibold">{exp.expenseNumber || exp.expenseCode}</div>
                       <div className="text-xs text-slate-500">{formatDate(exp.date)}</div>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-white">{exp.payee}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-white">{exp.title || exp.vendor}</div>
+                      <div className="text-xs text-slate-400">
+                        {exp.vendor}
+                        {exp.recordedBy?.fullName && <span className="text-slate-500"> &bull; By {exp.recordedBy.fullName}</span>}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-xs">
                       <span className="px-2.5 py-1 bg-slate-800 rounded text-slate-300 font-medium">
                         {exp.category.replace('_', ' ')}
@@ -141,24 +155,30 @@ export const Expenses: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       {exp.approvalStatus === 'PENDING' ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleApproval(exp.id, 'APPROVED')}
-                            className="p-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg text-xs"
-                            title="Approve Expense"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleApproval(exp.id, 'REJECTED')}
-                            className="p-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded-lg text-xs"
-                            title="Reject Expense"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        isAdmin ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleApproval(exp.id, 'APPROVED')}
+                              className="p-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg text-xs"
+                              title="Approve Expense (Admin)"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleApproval(exp.id, 'REJECTED')}
+                              className="p-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded-lg text-xs"
+                              title="Reject Expense (Admin)"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-400/90 font-medium">Pending Admin</span>
+                        )
                       ) : (
-                        <span className="text-xs text-slate-500">Finalized</span>
+                        <span className="text-xs text-slate-500">
+                          {exp.approvedBy?.fullName ? `By ${exp.approvedBy.fullName}` : 'Finalized'}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -178,15 +198,29 @@ export const Expenses: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleCreateExpense} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">Vendor / Payee *</label>
-            <input
-              type="text"
-              required
-              value={formData.payee}
-              onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Expense Title *</label>
+              <input
+                type="text"
+                required
+                minLength={3}
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Vendor / Payee *</label>
+              <input
+                type="text"
+                required
+                minLength={2}
+                value={formData.vendor}
+                onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -199,13 +233,30 @@ export const Expenses: React.FC = () => {
               >
                 <option value="RAW_MATERIALS">Raw Materials</option>
                 <option value="MANUFACTURING">Manufacturing / Tooling</option>
-                <option value="TRANSPORT">Transport & Delivery</option>
+                <option value="TRANSPORT_DELIVERY">Transport & Delivery</option>
                 <option value="UTILITIES">Utilities & Power</option>
                 <option value="MAINTENANCE">Machine Maintenance</option>
                 <option value="ADMINISTRATION">Administration</option>
                 <option value="OTHER">Other</option>
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Payment Method *</label>
+              <select
+                value={formData.paymentMethod}
+                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
+              >
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="UPI">UPI</option>
+                <option value="CASH">Cash</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Amount (₹) *</label>
               <input
@@ -218,9 +269,6 @@ export const Expenses: React.FC = () => {
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:border-sky-500 focus:outline-none"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Expense Date *</label>
               <input

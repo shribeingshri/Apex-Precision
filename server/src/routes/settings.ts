@@ -11,9 +11,41 @@ settingsRouter.get('/', authenticateToken, async (req: Request, res: Response): 
     const settings = await prisma.systemSetting.findMany({
       orderBy: { key: 'asc' },
     });
-    res.json(settings);
+    const configMap: Record<string, any> = {};
+    for (const s of settings) {
+      configMap[s.key] = s.value === 'true' ? true : s.value === 'false' ? false : !isNaN(Number(s.value)) && s.value.trim() !== '' ? Number(s.value) : s.value;
+    }
+    res.json(configMap);
   } catch (err: any) {
     res.status(500).json({ error: 'SETTINGS_ERROR', message: err.message });
+  }
+});
+
+settingsRouter.post('/', authenticateToken, requireRole([Role.SUPER_ADMIN, Role.MANAGEMENT]), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const entries = Object.entries(req.body || {});
+    for (const [key, value] of entries) {
+      if (value === undefined || value === null) continue;
+      await prisma.systemSetting.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) },
+      });
+    }
+
+    await logActivity({
+      userId: req.user!.id,
+      userName: req.user!.fullName,
+      action: 'UPDATE_SETTINGS',
+      entity: 'SystemSetting',
+      entityId: 'GLOBAL',
+      details: `Updated ${entries.length} system configuration settings`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ success: true, updated: entries.length });
+  } catch (err: any) {
+    res.status(500).json({ error: 'SETTING_UPDATE_ERROR', message: err.message });
   }
 });
 

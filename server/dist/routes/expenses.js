@@ -92,10 +92,10 @@ exports.expensesRouter.post('/', auth_1.authenticateToken, (0, auth_1.requirePer
         res.status(500).json({ error: 'EXPENSE_CREATE_ERROR', message: err.message });
     }
 });
-exports.expensesRouter.post('/:id/approval', auth_1.authenticateToken, (0, auth_1.requirePermission)('APPROVE_EXPENSES'), async (req, res) => {
+async function handleExpenseApproval(req, res) {
     try {
         const id = getParamId(req);
-        const { status } = req.body;
+        const status = req.body.status || req.body.approvalStatus;
         if (!['APPROVED', 'REJECTED'].includes(status)) {
             res.status(400).json({ error: 'INVALID_STATUS', message: 'Status must be APPROVED or REJECTED.' });
             return;
@@ -121,4 +121,6 @@ exports.expensesRouter.post('/:id/approval', auth_1.authenticateToken, (0, auth_
     catch (err) {
         res.status(500).json({ error: 'EXPENSE_APPROVAL_ERROR', message: err.message });
     }
-});
+}
+exports.expensesRouter.post('/:id/approval', auth_1.authenticateToken, (0, auth_1.requirePermission)('APPROVE_EXPENSES'), handleExpenseApproval);
+exports.expensesRouter.patch('/:id/approval', auth_1.authenticateToken, (0, auth_1.requirePermission)('APPROVE_EXPENSES'), handleExpenseApproval);

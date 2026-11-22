@@ -38,7 +38,7 @@ qualityRouter.get('/', authenticateToken, async (req: Request, res: Response): P
       where,
       include: {
         project: {
-          select: { id: true, projectCode: true, name: true },
+          select: { id: true, projectCode: true, name: true, productName: true },
         },
         productionRecord: {
           select: { id: true, batchNumber: true, producedQty: true },

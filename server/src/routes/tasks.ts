@@ -96,7 +96,7 @@ tasksRouter.post('/', authenticateToken, requirePermission('MANAGE_TASKS'), asyn
   }
 });
 
-tasksRouter.put('/:id/status', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+async function handleTaskStatusUpdate(req: Request, res: Response): Promise<void> {
   try {
     const id = getParamId(req);
     const { status, progress } = req.body;
@@ -123,4 +123,7 @@ tasksRouter.put('/:id/status', authenticateToken, async (req: Request, res: Resp
   } catch (err: any) {
     res.status(500).json({ error: 'TASK_STATUS_ERROR', message: err.message });
   }
-});
+}
+
+tasksRouter.put('/:id/status', authenticateToken, handleTaskStatusUpdate);
+tasksRouter.patch('/:id/status', authenticateToken, handleTaskStatusUpdate);

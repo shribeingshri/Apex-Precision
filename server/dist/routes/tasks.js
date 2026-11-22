@@ -90,7 +90,7 @@ exports.tasksRouter.post('/', auth_1.authenticateToken, (0, auth_1.requirePermis
         res.status(500).json({ error: 'TASK_CREATE_ERROR', message: err.message });
     }
 });
-exports.tasksRouter.put('/:id/status', auth_1.authenticateToken, async (req, res) => {
+async function handleTaskStatusUpdate(req, res) {
     try {
         const id = getParamId(req);
         const { status, progress } = req.body;
@@ -115,4 +115,6 @@ exports.tasksRouter.put('/:id/status', auth_1.authenticateToken, async (req, res
     catch (err) {
         res.status(500).json({ error: 'TASK_STATUS_ERROR', message: err.message });
     }
-});
+}
+exports.tasksRouter.put('/:id/status', auth_1.authenticateToken, handleTaskStatusUpdate);
+exports.tasksRouter.patch('/:id/status', auth_1.authenticateToken, handleTaskStatusUpdate);

@@ -35,7 +35,7 @@ exports.qualityRouter.get('/', auth_1.authenticateToken, async (req, res) => {
             where,
             include: {
                 project: {
-                    select: { id: true, projectCode: true, name: true },
+                    select: { id: true, projectCode: true, name: true, productName: true },
                 },
                 productionRecord: {
                     select: { id: true, batchNumber: true, producedQty: true },
